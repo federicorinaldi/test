@@ -1,0 +1,39 @@
+@startuml
+'skinparam handwritten true
+skinparam defaultFontName MV Boli
+participant "End User" as EndUser
+participant "API" as API
+participant "Kana" as Kana
+participant "Another Business event consumer" as BUS_CONSUMER_GIOS
+participant "Business event consumer (NoSQL)" as BUS_CONSUMER_NOSQL
+participant "CDC event consumers" as CDC_CONSUMER
+participant "Kafka" as Kafka
+participant "NoSQL DB" as NOSQL
+participant "Oracle DB (GIOS)" as GIOS
+participant "Qlik/Attunity CDC" as CDC
+
+note right of API
+Example of a typical CDC flow that demonstrates Eventual Consistency.
+end note
+
+activate EndUser
+group Address creation flow
+
+EndUser -> Kana: Create Address
+Kana -> GIOS: Writes via SP to GIOS
+GIOS -> CDC: Qlik Replicate monitors\n the transaction logs and\n creates CDC Events
+CDC -> Kafka: Qlik Replicate puts those CDC Events\n onto a topic in Kafka
+Kafka -> CDC_CONSUMER: The CDC Events are consumed
+CDC_CONSUMER -> CDC_CONSUMER: CDC Events are de-duplicated\n if already received from CDC tool
+CDC_CONSUMER -> CDC_CONSUMER: CDC Events are aggregated\n into one or more Business Events
+CDC_CONSUMER -> Kafka: Those Business events are put\n back into a Kafka business\n topic - AddressCreatedEvent
+Kafka -> BUS_CONSUMER_NOSQL: Consumes AddressCreatedEvent
+BUS_CONSUMER_NOSQL -> NOSQL: write Address from AddressCreatedEvent\n to NoSQL (Confirmed state)
+Kafka -> BUS_CONSUMER_GIOS: Consumes AddressCreatedEvent \n and does something else with it
+end
+
+
+deactivate EndUser
+
+
+@enduml
